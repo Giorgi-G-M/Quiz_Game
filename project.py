@@ -3,25 +3,29 @@ import random
 import time
 import sys
 import select
-import threading
 
 # Define a global variable to store the user's answer
-# user_answer = None
+user_answer = None
 
 def main():
     """
     Main function to start the Trivia Quiz Game.
     """
+    # Input user's information
     name = input("Enter your name: ")
     surname = input("Enter your surname: ")
     nickname = input("Enter your nickname: ")
     
+    # Check if the user already exists
     user_data = get_user_data(name, surname, nickname)
     score = 0
     if user_data:
         difficulty = user_data['Difficulty']
         print("Welcome back,", name, surname, "(", nickname, ")!")
+        if user_data["Score"] >= str(120) and user_data["Score"] <= str(160):
+            sys.exit("No more difficulty levels to unlock. You've reached the highest level!")
     else:
+        # If user doesn't exist, add them with default settings
         new_user = add_new_user(name, surname, nickname)
         if new_user:
             difficulty = 'Easy'
@@ -31,6 +35,7 @@ def main():
     
     while True:
         try:
+            # Get trivia questions based on user's difficulty level
             questions = list(get_questions(difficulty))
             
             if not questions:
@@ -44,7 +49,6 @@ def main():
             timer_duration = get_timer_duration(difficulty)
             remaining_time = timer_duration  # Initialize remaining time
             
-            
             start_time = time.time()
             for question_index in range(num_questions_to_ask):
                 question, choices, correct_choice = questions[question_index]
@@ -52,77 +56,58 @@ def main():
                 
                 if choices:
                     print("Possible Answers:", format_choices(choices))
-                user_input_thread = threading.Thread(target=get_user_answer)
-                user_input_thread.start()
                 
-                # Start a thread to get user's answer
-                
+                # Count down timer for each question
                 while remaining_time > 0:  # Continue while there is remaining time
                     sys.stdout.write("\r")  # Move cursor to the beginning of the line
-                    if remaining_time == 1:
-                        sys.exit("time")
                     sys.stdout.write("{:2d} seconds remaining. Enter your answer here:  ".format(remaining_time))  # Show remaining time
                     sys.stdout.flush()  # Flush the output buffer
                     time.sleep(1)  # Wait for 1 second
                     remaining_time = int(timer_duration - (time.time() - start_time))  # Update remaining time
-                    if remaining_time == 1:
-                        raise ValueError
-                
-                # Check if the user's answer thread has finished
-                if not user_input_thread.is_alive():
-                    break
-                
-                # Check if there is input available to read from stdin
-                if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-                    user_input = sys.stdin.readline().strip().upper()
-                    if user_input:
-                        global user_answer
-                        user_answer = user_input
-                        break
-                
+                    
+                    # Check if there is input available to read from stdin
+                    if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                        user_input = sys.stdin.readline().strip().upper()
+                        if user_input:
+                            user_answer = user_input
+                            break
+                            
                 if user_answer is None:
-                    print("\nTime's up!")
+                        sys.exit("\nTime's up!")
                 else:
                     if user_answer == correct_choice.upper():
                         print("\nCorrect!")
                         score += 10
                     else:
                         print("\nIncorrect!.")
+                    # Reset user_answer for the next question
+                    user_answer = None
             
+            # Update user's score and difficulty level
             update_score_and_difficulty(name, surname, nickname, score, difficulty)
-            print(score)
+            print("Score:", score)
+            
+            # Check if the user has unlocked a new difficulty level
             if score >= 60:
-                print(f"\nCongratulations, you have unlocked {next_difficulty(difficulty)} difficulty level!")
-                choice = input("Do you want to continue to the next difficulty level? (yes/no): ").strip().lower()
-                if choice != 'yes':
+                next_diff = next_difficulty(difficulty)
+                if next_diff:
+                    print(f"\nCongratulations, you have unlocked {next_diff} difficulty level!")
+                    choice = input("Do you want to continue to the next difficulty level? (yes/no): ").strip().lower()
+                    if choice != 'yes':
+                        break
+                    difficulty = next_diff
+                else:
+                    print("\nNo more difficulty levels to unlock. You've reached the highest level!")
                     break
-                difficulty = next_difficulty(difficulty)
             else:
                 print("\nUnfortunately, you couldn't unlock a new difficulty level. Keep trying.")
                 break
-        except ValueError:
-            sys.exit()
+        except (ValueError,UnboundLocalError):
+            print("\nAn error occurred. Exiting...")
+            break
 
-
-def get_user_answer():
-    """
-    Function to get user's answer asynchronously.
-    """
-    global user_answer
-    user_answer = input("\nYour answer: ").strip().upper()
-
+# Function to retrieve user data from CSV file.
 def get_user_data(name, surname, nickname):
-    """
-    Function to retrieve user data from CSV file.
-    
-    Parameters:
-        name (str): User's first name.
-        surname (str): User's last name.
-        nickname (str): User's nickname.
-    
-    Returns:
-        dict: User data if found, None otherwise.
-    """
     with open('scores.csv', 'r') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
@@ -130,40 +115,16 @@ def get_user_data(name, surname, nickname):
                 return row
     return None
 
-
+# Function to add a new user to the CSV file.
 def add_new_user(name, surname, nickname):
-    """
-    Function to add a new user to the CSV file.
-    
-    Parameters:
-        name (str): User's first name.
-        surname (str): User's last name.
-        nickname (str): User's nickname.
-    
-    Returns:
-        bool: True if user added successfully, False otherwise.
-    """
     with open('scores.csv', 'a', newline='') as csvfile:
         fieldnames = ['Name', 'Surname', 'Nickname', 'Score', 'Difficulty']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writerow({'Name': name, 'Surname': surname, 'Nickname': nickname, 'Score': 0, 'Difficulty': 'Easy'})
     return True
 
-
+# Function to update user's score and difficulty level in the CSV file.
 def update_score_and_difficulty(name, surname, nickname, score, difficulty):
-    """
-    Function to update user's score and difficulty level in the CSV file.
-    
-    Parameters:
-        name (str): User's first name.
-        surname (str): User's last name.
-        nickname (str): User's nickname.
-        score (int): User's new score.
-        difficulty (str): User's new difficulty level.
-    
-    Returns:
-        bool: True if user data updated successfully, False otherwise.
-    """
     rows = []
     updated = False
     with open('scores.csv', 'r') as csvfile:
@@ -183,43 +144,25 @@ def update_score_and_difficulty(name, surname, nickname, score, difficulty):
     
     return updated
 
-
+# Function to determine the next difficulty level.
 def next_difficulty(current_difficulty):
-    """
-    Function to determine the next difficulty level.
-    
-    Parameters:
-        current_difficulty (str): Current difficulty level.
-    
-    Returns:
-        str: Next difficulty level.
-    """
     if current_difficulty == 'Easy':
         return 'Medium'
- 
+    elif current_difficulty == 'Medium':
+        return 'Hard'
+    else:
+        return None
 
+# Generator function to yield trivia questions based on difficulty level.
 def get_questions(difficulty):
-    """
-    Generator function to yield trivia questions based on difficulty level.
-    
-    Parameters:
-        difficulty (str): Difficulty level ('Easy', 'Medium', or 'Hard').
-    
-    Yields:
-        tuple: Tuple containing question, choices, and correct choice.
-    """
     if difficulty == 'Easy':
         yield from easy_questions()
     elif difficulty == 'Medium':
         yield from medium_questions()
+    # Add more conditions for other difficulty levels if needed
 
+# Function to yield easy trivia questions from CSV file.
 def easy_questions():
-    """
-    Function to yield easy trivia questions from CSV file.
-    
-    Yields:
-        tuple: Tuple containing question, choices, and correct choice.
-    """
     with open('easy.csv', 'r') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
@@ -228,13 +171,8 @@ def easy_questions():
             choices = row.get('Choices', None)
             yield question, choices.split(',') if choices else None, correct_choice
 
+# Function to yield medium trivia questions from CSV file.
 def medium_questions():
-    """
-    Function to yield medium trivia questions from CSV file.
-    
-    Yields:
-        tuple: Tuple containing question, choices, and correct choice.
-    """
     with open('medium.csv', 'r') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
@@ -243,31 +181,15 @@ def medium_questions():
             choices = row.get('Choices', None)
             yield question, choices.split(',') if choices else None, correct_choice
 
-
+# Function to format choices for display.
 def format_choices(choices):
-    """
-    Function to format choices for display.
-    
-    Parameters:
-        choices (list): List of choices.
-    
-    Returns:
-        list: Formatted choices list.
-    """
     return choices if choices else ['No choices available']
 
+
+# Function to get timer duration based on difficulty level.
 def get_timer_duration(difficulty):
-    """
-    Function to get timer duration based on difficulty level.
-    
-    Parameters:
-        difficulty (str): Difficulty level ('Easy', 'Medium', or 'Hard').
-    
-    Returns:
-        int: Timer duration in seconds.
-    """
     if difficulty == 'Easy':
-        return 5 
+        return 120
     elif difficulty == 'Medium':
         return 180 
 

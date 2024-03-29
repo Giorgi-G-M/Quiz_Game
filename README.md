@@ -13,7 +13,7 @@ The Trivia Quiz Game is a Python program designed to provide users with an inter
 
 - `scores.csv`: This CSV file is used to store user data, including name, surname, nickname, score, and difficulty level. It serves as the data storage mechanism for the Trivia Quiz Game.
 
-- `easy.csv`, `medium.csv`, `hard.csv`: These CSV files contain trivia questions of different difficulty levels. Each file contains questions along with their correct answers and optionally, multiple-choice options.
+- `easy.csv`, `medium.csv`: These CSV files contain trivia questions of different difficulty levels. Each file contains questions along with their correct answers and optionally, multiple-choice options.
 
 ## Design Choices:
 
