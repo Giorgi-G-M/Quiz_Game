@@ -148,8 +148,6 @@ def update_score_and_difficulty(name, surname, nickname, score, difficulty):
 def next_difficulty(current_difficulty):
     if current_difficulty == 'Easy':
         return 'Medium'
-    elif current_difficulty == 'Medium':
-        return 'Hard'
     else:
         return None
 
